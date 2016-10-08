@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+
+# install a plist such that dhcp_121.py will run when
+# NIC changes are detected that affect DNS entries.
+
+
+TARGET_DIR=/usr/local/bin
+EXECUTABLE=dhcp_121.py
+OVERRIDE_DIR=/usr/local/etc
+PLIST_PATH=/Library/LaunchDaemons
+PLIST_NAME=dhcp_121
+PLIST_FILE=$PLIST_NAME.plist
+
+# El Capitan is 10.11.6, which is expanded to this number when
+# compared in check_version()
+UNSUPPORTED_VERSION=10110600
+
+function check_root {
+    # if not root, exit
+    if [ "$UID" -ne "0" ];then
+        echo "root permission is required"
+        exit 1
+    fi
+}
+
+
+function check_os {
+    if [ $( uname -a | cut -f1 -d" " ) != "Darwin" ];then
+        echo "System not detected as a version of MacOS, exiting."
+        exit 1
+    fi
+}
+
+function check_version {
+    version=$( $( which sw_vers ) -productVersion )
+    # the awk line expands a dotted number into a large number
+    expanded_version=$( echo $version|awk -F. \
+        '{ printf("%02d%02d%02d%02d\n", $1,$2,$3,$4); }' )
+    if [ $expanded_version -ge $UNSUPPORTED_VERSION ];then
+        echo "DHCP Option 121 support is built into this OS"
+        exit 1
+    fi
+}
+
+# give the user a chance to bail before potentially
+# disrupting the network, however low the chance may be
+# for "all" communications to be affected.
+function disclaimer {
+    echo "This may cause a network disruption."
+    echo -n "Continue? [y/N] "
+    read answer
+    case $answer in
+        [yY]|[yY][Ee][Ss])
+            echo "Proceeding"
+        ;;
+        *)
+            echo "Exiting"
+            exit 1
+        ;;
+    esac
+}
+
+
+# the installer
+function install_dhcp-121 {
+    echo "Installing dhcp_121"
+    # make sure the user is aware
+    disclaimer
+
+    # make the directories
+    [ -d $TARGET_DIR ] || mkdir -p $TARGET_DIR
+    [ -d $OVERRIDE_DIR ] || mkdir -p $OVERRIDE_DIR
+
+    # copy the files
+    [ -f $TARGET_DIR/$EXECUTABLE ] || cp ./$EXECUTABLE $TARGET_DIR
+
+    # adjust the permissions
+    [ -x $TARGET_DIR/$EXECUTABLE ] || chmod +x $TARGET_DIR/$EXECUTABLE
+
+    # set $PLIST_DATA to the XML contents:
+    read -d '' PLIST_DATA <<"EOF"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" \
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dhcp_121</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/dhcp_121.py</string>
+    </array>
+    <key>WatchPaths</key>
+    <array>
+        <string>/etc/resolv.conf</string>
+        <string>/var/run/resolv.conf</string>
+        <string>/private/var/run/resolv.conf</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+EOF
+
+    # create the plist file if it doesnt exist
+    [ -f $PLIST_PATH/$PLIST_FILE ] || echo "$PLIST_DATA" > $PLIST_PATH/$PLIST_FILE
+    [ -x $PLIST_PATH/$PLIST_FILE ] || chmod +x $PLIST_PATH/$PLIST_FILE
+
+    status_launchctl
+    if [ "$?" -eq 0 ];then
+        echo "$PLIST_NAME not present, adding $PLIST_FILE to launchctl"
+        launchctl load $PLIST_PATH/$PLIST_FILE
+    else
+        echo $PLIST_NAME exists, not changing launchctl definition
+    fi
+
+    # start the service
+    echo "Starting $PLIST_NAME"
+    launchctl start $PLIST_NAME
+
+    status_launchctl
+
+}
+
+
+function status_dhcp-121 {
+    unset failure
+    failure=0
+    if [ "$1" == "uninstall" ];then
+        uninstall=1
+        echo "Checking file states after uninstallation:"
+    else
+        uninstall=0
+    fi
+    if [ ! -f $PLIST_PATH/$PLIST_FILE ];then
+         echo $PLIST_PATH/$PLIST_FILE not present
+         failure=$[ $failure + 1 ]
+    fi
+    if [ ! -x $PLIST_PATH/$PLIST_FILE ];then
+         echo $PLIST_PATH/$PLIST_FILE not executable
+         failure=$[ $failure + 2 ]
+    fi
+    if [ ! -f $TARGET_DIR/$EXECUTABLE ];then
+        echo $TARGET_DIR/$EXECUTABLE not present
+        failure=$[ $failure + 4 ]
+    fi
+    if [ ! -x $TARGET_DIR/$EXECUTABLE ];then
+        echo $TARGET_DIR/$EXECUTABLE not executable
+        failure=$[ $failure + 8 ]
+    fi
+    if [ $uninstall -eq 0 ];then
+        if [ $failure -gt 0 ];then
+            echo "Running this scripts uninstall and then install routine may fix any issues found."
+        else
+            echo "Installation OK"
+        fi
+    else
+        if [ $failure -eq 15 ];then
+            echo "Uninstallation OK"
+        else
+            echo "Uninstallation encountered issues removing files."
+        fi
+    fi
+    echo
+}
+
+
+
+function status_launchctl {
+    # determine if $PLIST_NAME is in the launchctl list
+    launchctl list $PLIST_NAME 2&>/dev/null
+    if [ "$?" -eq 0 ];then
+        echo "launchctl has $PLIST_NAME"
+        retval=1
+    else
+        retval=0
+    fi
+    return $retval
+}
+
+
+function uninstall_dhcp-121 {
+    # ask the user before proceeding
+    disclaimer
+
+    # uninstall:
+    echo "Uninstalling dhcp-121"
+    echo "Stopping $PLIST_NAME"
+    launchctl stop $PLIST_NAME
+    status_launchctl
+    if [ "$?" -eq 1 ];then
+        launchctl unload $PLIST_PATH/$PLIST_FILE
+    fi
+    echo "Removing plist file"
+    [ -f $PLIST_PATH/$PLIST_FILE ] && rm -f $PLIST_PATH/$PLIST_FILE
+
+    echo "Removing $EXECUTABLE from $TARGET_DIR"
+    [ -f $TARGET_DIR/$EXECUTABLE ] && rm -f $TARGET_DIR/$EXECUTABLE
+}
+
+
+function usage {
+    echo "Command line options:"
+    echo "      install - installs and starts dhcp_121."
+    echo "    uninstall - stops and uninstalls dhcp_121"
+    echo "                dhcp 121 set routes are left in the routing table"
+    echo "       status - determine the installation status of dhcp_121"
+}
+
+
+# run control for this file, effectively "main()":
+
+# check the OS
+check_os
+
+# check for < 10.11.6 (El Capitan)
+check_version
+
+# check for root permissions
+check_root
+
+
+# The few command line options:
+case "$1" in
+    'uninstall')
+          uninstall_dhcp-121
+          status_dhcp-121 uninstall
+    ;;
+    'status')
+          status_dhcp-121
+          status_launchctl
+    ;;
+    'install')
+          install_dhcp-121
+          status_dhcp-121
+    ;;
+    [hH]elp|[hH]|*)
+          usage
+    ;;
+esac
