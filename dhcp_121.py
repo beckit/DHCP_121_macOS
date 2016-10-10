@@ -9,30 +9,9 @@
     transaction transpired.  The data includes the DHCP option codes present
     in the response to this machines request.  If the DHCP option 121 is not
     present, its likely due to the fact that this machine did not request
-    option 121.
+    option 121.  There is a method of adding in option 121 to the systems
+    DHCP request, see the add_dhcp_request_option.py section of the readme
 
-    Option 121 can be forced in the response on a per object (subnet, host,
-    VPN group, etc.) basis on most DHCP server software packages.  The example
-    shows how to configure ISC's DHCP server to force the option to a specific
-    DHCP client via a host statement.
-
-    dhcpd.conf:
-
-# defines the type of data used to send static ipv4 routes
-option classless-routes code 121 = array of unsigned integer 8;
-
-# My wifi interface will default to the 10.0.8.0/24 subnet
-host my_elder_macbook {
-    hardware ethernet c8:bc:c8:fa:ca:de;
-    fixed-address 10.0.8.42;
-    option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list, 79);
-    option classless-routes 24, 192,168,1, 10,0,8,10,
-                            24, 192,168,2, 10,0,8,20,
-                            24, 192,168,3, 192,168,0,10,
-                            24, 192,168,4, 192,168,0,20,
-                            24, 192,168,5, 10,0,8,32,
-                            24, 192,168,6, 10,0,8,58;
-}
 """
 import os
 import platform

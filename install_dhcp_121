@@ -6,10 +6,19 @@
 
 TARGET_DIR=/usr/local/bin
 EXECUTABLE=dhcp_121.py
+FIXUP_PLIST_EXEC=add_dhcp_request_option.py
 OVERRIDE_DIR=/usr/local/etc
 PLIST_PATH=/Library/LaunchDaemons
 PLIST_NAME=dhcp_121
 PLIST_FILE=$PLIST_NAME.plist
+
+# the IPConfiguration.bundle/Info.plist is where the DHCP Request codes are
+# kept, but seems to require a reboot for changes to have any affect
+REQUEST_PATH=/System/Library/SystemConfiguration/IPConfiguration.bundle/Contents
+REQUEST_FILE=Info.plist
+REQUEST_FILENAME="${REQUEST_PATH}"/"${REQUEST_FILE}"
+REQUEST_OPTION_121='<integer>121</integer>'
+
 
 # El Capitan is 10.11.6, which is expanded to this number when
 # compared in check_version()
@@ -58,6 +67,12 @@ function disclaimer {
             exit 1
         ;;
     esac
+}
+
+
+function install_option_121_plist {
+    echo "fixing up the system plist for option 121 requests"
+    $FIXUP_PLIST_EXEC 121
 }
 
 
@@ -150,6 +165,11 @@ function status_dhcp-121 {
         echo $TARGET_DIR/$EXECUTABLE not executable
         failure=$[ $failure + 8 ]
     fi
+    out=$( grep "${REQUEST_OPTION}" "${REQUEST_FILENAME}" )
+    if [ ! "$out" ];then
+        echo "${REQUEST_OPTION}" was not found in "${REQUEST_FILENAME}"
+        failure=$[ $failure + 16 ]
+    fi
     if [ $uninstall -eq 0 ];then
         if [ $failure -gt 0 ];then
             echo "Running this scripts uninstall and then install routine may fix any issues found."
@@ -234,6 +254,7 @@ case "$1" in
     ;;
     'install')
           install_dhcp-121
+          install_option_121_plist
           status_dhcp-121
     ;;
     [hH]elp|[hH]|*)

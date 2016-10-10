@@ -3,14 +3,22 @@
 ## Overview
 RFC 3442 / DHCP option 121 static route support for MacOS with installer.
 
+##### Install instructions are near the end of this document in "To Install"
+
 DHCP option 121 provides the option for clients to obtain static
 route information from a DHCP server.  Unfortunately, older
-versions of macOS do not natively handle option 121 routes.
+versions of macOS do not natively handle option 121 routes in a stock
+configuration.  This software is intended to alleviate this condition.
+
+The software can be ran standalone (cron, etc.) or preferably via the
+DHCP plist provided.  The installer will place the python script,
+install the DHCP option in the request array and install the DHCP plist
+so that the dhcp_121.py script is called at every interface status change,
+such as when WiFi goes down or ethernet is plugged in.
 
 El Capitan (a 2015 era version of macOS) brings in support for native
 DHCP option 121 decoding and makes this software obsolete for its
-intended use.  It could be repurposed with the override file into
-supporting static routes on demand if the version check is removed.
+intended use.
 
 The data from a DHCP packet can be obtained well after the actual
 transaction transpired.  The data includes the DHCP option codes present
@@ -18,30 +26,11 @@ in the response to this machines request.  If the DHCP option 121 is not
 present, its likely due to the fact that this machine did not request
 option 121.
 
-Option 121 can be forced in the response on a per object (subnet, host,
-VPN group, etc.) basis on most DHCP server software packages.  The example
-shows how to configure ISC's DHCP server to force the option to a specific
-DHCP client via a host statement.
 
-### dhcpd.conf:
-```
-# defines the type of data used to send static ipv4 routes
-option classless-routes code 121 = array of unsigned integer 8;
-
-# My wifi interface will default to the 10.0.8.0/24 subnet
-host my_elder_macbook {
-    hardware ethernet c8:bc:c8:fa:ca:de;
-    fixed-address 10.0.8.42;
-    option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list, 79);
-    option classless-routes 24, 192,168,1, 10,0,8,10,
-                            24, 192,168,2, 10,0,8,20,
-                            24, 192,168,3, 192,168,0,10,
-                            24, 192,168,4, 192,168,0,20,
-                            24, 192,168,5, 10,0,8,32,
-                            24, 192,168,6, 10,0,8,58;
-}
-```
-
+#### add_dhcp_request_option.py:
+Option 121 can be requested if placed in the array of option codes
+to request by the system.  The add_dhcp_request_option.py script is
+written to place the option code safely into the system plist.
 
 
 ### Common use issue: en0 vs en1:
@@ -49,9 +38,6 @@ host my_elder_macbook {
    the "nic" option in the override file, but its likely how most people
    things to behave in the event that they leave their wifi nic up when
    plugging ethernet in.
-
-
-
 
 
 
@@ -102,22 +88,31 @@ By default the override file is defined as /usr/local/etc/dhcp_121_override
 ### To Install:
 ##### Client Side (on the Macintosh):
     - Run the installdhcp121 script as root with the "install" option.  
-    -- the dhcp_121.py script should be in the same directory.
+    -- the dhcp_121.py and add_dhcp_request_option.py scripts must be in the
+       same directory
+
     -- the plist file doesnt need to be downloaded.  Its encoded
        in the installer.  the plist is included so folks can see
        what this script works with before use.
 
     At a high level does the following things:
       Copies the dhcp_121.py script to /usr/local/bin
+
       Creates the directory /usr/local/etc if it doesnt exist
          (so that the override file can be easily created)
-      Places a plist file in /Library/LaunchDaemons
-      Registers the plist
-      Starts the plist which runs the dhcp_121.py script once.
+
+      Inserts a DHCP option request code 121 into the existing
+/System/Library/SystemConfiguration/IPConfiguration.bundle/Contents/Info.plist
+
+      Places a DHCP plist file in /Library/LaunchDaemons
+
+      Registers the DHCP plist
+
+      Starts the DHCP plist which runs the dhcp_121.py script immediately
 
 ##### Server Side:
-    - Configure forced option 121 responses since option 121
-      wont be requested by the macOS client
+    - Configure option 121 responses, they will be requested by the client
+      (see the section about add_dhcp_request_option.py)
 
 ### To Uninstall:
    Run the installdhcp121 script with the "uninstall" option.  It will
