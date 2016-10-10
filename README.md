@@ -117,7 +117,8 @@ By default the override file is defined as /usr/local/etc/dhcp_121_override
 ### To Uninstall:
    Run the installdhcp121 script with the "uninstall" option.  It will
    deregister and remove the plist and removes the dhcp_121 python script.
-   It will not remove /usr/local/etc.
+   It will not remove /usr/local/etc or the option 121 request from the system
+   plist as both improve the system regardless.
 
 ### To Use:
    Usage should be automatic for most environments and macintoshes.
