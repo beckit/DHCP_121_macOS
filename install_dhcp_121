@@ -72,7 +72,7 @@ function disclaimer {
 
 function install_option_121_plist {
     echo "fixing up the system plist for option 121 requests"
-    $FIXUP_PLIST_EXEC 121
+    ./$FIXUP_PLIST_EXEC 121
 }
 
 
