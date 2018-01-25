@@ -26,20 +26,26 @@ in the response to this machines request.  If the DHCP option 121 is not
 present, its likely due to the fact that this machine did not request
 option 121.
 
+Older versions of MacOS, such as Lion, require that the DHCP server be configured
+to push option 121 without it being requested.  This can be configured in isc's
+dhcpd like so:
+
+# force option 121 (hex 79) to be pushed in the reply
+option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list, 79);
 
 #### add_dhcp_request_option.py:
 Option 121 can be requested if placed in the array of option codes
 to request by the system.  The add_dhcp_request_option.py script is
-written to place the option code safely into the system plist.
-
+written to place the option code safely into the system plist.  This
+only works on particular versions of MacOS such as Yosemite, otherwise
+see the note above about forcing option 121 in the DHCP replies from the 
+dhcp server.
 
 ### Common use issue: en0 vs en1:
    en0 will be scanned first and will win.  This can be overriden with the
    the "nic" option in the override file, but its likely how most people
    things to behave in the event that they leave their wifi nic up when
    plugging ethernet in.
-
-
 
 ### OVERRIDE_FILE:
 The override file can contain comments if the line starts with a #, but

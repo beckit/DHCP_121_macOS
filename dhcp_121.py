@@ -340,7 +340,9 @@ def get_hardware_link_state(nic):
     cmd = 'networksetup -getmedia %s' % nic
 
     try:
-        stdout = subprocess.check_output(cmd.split())
+        p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
     except subprocess.CalledProcessError:
         stdout = ''
 
@@ -362,7 +364,9 @@ def get_ip_addresses(interface):
     Returns a list of "ip address, netmask" tuples
     """
     cmd = '/sbin/ifconfig %s inet' % interface
-    stdout = subprocess.check_output(cmd.split())
+    p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
     addresses = []
     for line in stdout.splitlines():
         inet = re.search(r'inet ((?:[0-9]{1,3}\.){3}[0-9]{1,3}) '
@@ -383,7 +387,10 @@ def get_ipv4_interfaces():
     """
     # show all the interfaces and ipv4 networking info
     cmd = 'ifconfig -a inet'
-    return subprocess.check_output(cmd.split())
+    p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    return stdout
 
 
 def get_ipv4_routes(route_table):
@@ -447,7 +454,9 @@ def get_packet(interface):
     """
     cmd = '/usr/sbin/ipconfig getpacket %s' % interface
     try:
-        stdout = subprocess.check_output(cmd.split())
+        p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
     except subprocess.CalledProcessError:
         stdout = ''
     return stdout
@@ -459,7 +468,10 @@ def get_route_table():
     """
     # only show the ipv4 routing table without name resolution:
     cmd = 'netstat -f inet -rn'
-    return subprocess.check_output(cmd.split())
+    p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    return stdout
 
 
 def get_route_table_with_masks():
@@ -553,7 +565,10 @@ def route_cmd(route, routeverb=''):
     mask = route[1]
     gateway = route[2]
     cmd = 'route %s %s/%s %s' % (routeverb, subnet, mask, gateway)
-    return subprocess.check_output(cmd.split())
+    p = subprocess.Popen(cmd.split(), stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    return stdout
 
 
 def set_routes(routes, addresses, gatewaycheck, static_routes):
