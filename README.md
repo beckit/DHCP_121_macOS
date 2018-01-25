@@ -30,7 +30,7 @@ Older versions of MacOS, such as Lion, require that the DHCP server be configure
 to push option 121 without it being requested.  This can be configured in isc's
 dhcpd like so:
 
-# force option 121 (hex 79) to be pushed in the reply
+#### force option 121 (hex 79) to be pushed in the reply
 option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list, 79);
 
 #### add_dhcp_request_option.py:
